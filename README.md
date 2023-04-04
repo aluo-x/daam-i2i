@@ -55,7 +55,7 @@ There are 3 types of visualizations available:
 - Pixel-based here. The pixels are numbered in row-major order i.e.
   - 1     2 .. 64\
   4033 4034 .. 4096\
-  Only latent image height and width is valid i.e. 64 x 64 so the pixels that can be mentioned is a list from 1 ... 4096.
+  Only latent image height and width is valid (i.e. 64 x 64 for Stable Diffusion v2 base) so the pixels that can be mentioned is a list from 1 ... 4096.
   ```python
   # Compute heatmap for latent pixel lists row-major
   pixel_heatmap = global_heat_map.compute_pixel_heat_map(list(range(1024))).expand_as(output_image[0]).numpy()
