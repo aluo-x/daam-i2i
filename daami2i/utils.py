@@ -12,7 +12,7 @@ import torch
 import torch.nn.functional as F
 
 
-__all__ = ['set_seed', 'plot_mask_heat_map', 'cached_nlp', 'cache_dir', 'auto_device', 'auto_autocast']
+__all__ = ['set_seed', 'plot_mask_heat_map', 'cache_dir', 'auto_device', 'auto_autocast']
 
 
 T = TypeVar('T')
