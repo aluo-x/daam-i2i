@@ -5,7 +5,7 @@ gradio
 ftfy
 transformers==4.24.0
 pandas
-number
+numba
 nltk
 inflect
 joblib
