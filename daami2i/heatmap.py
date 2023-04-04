@@ -13,7 +13,7 @@ import torch
 import torch.nn.functional as F
 
 from .evaluate import compute_ioa
-from .utils import compute_token_merge_indices, cached_nlp, auto_autocast
+from .utils import auto_autocast
 
 __all__ = ['GlobalHeatMap', 'RawHeatMapCollection', 'PixelHeatMap', 'ParsedHeatMap', 'SyntacticHeatMapPair']
 
@@ -102,8 +102,6 @@ class SyntacticHeatMapPair:
 @dataclass
 class ParsedHeatMap:
     word_heat_map: PixelHeatMap
-    token: spacy.tokens.Token
-
 
 class GlobalHeatMap:
     def __init__(self, heat_maps: torch.Tensor, latent_hw: int):

@@ -8,12 +8,11 @@ from typing import TypeVar
 import PIL.Image
 import matplotlib.pyplot as plt
 import numpy as np
-import spacy
 import torch
 import torch.nn.functional as F
 
 
-__all__ = ['set_seed', 'compute_token_merge_indices', 'plot_mask_heat_map', 'cached_nlp', 'cache_dir', 'auto_device', 'auto_autocast']
+__all__ = ['set_seed', 'plot_mask_heat_map', 'cached_nlp', 'cache_dir', 'auto_device', 'auto_autocast']
 
 
 T = TypeVar('T')
@@ -68,38 +67,3 @@ def cache_dir() -> Path:
         local = os.environ.get('LOCALAPPDATA', None) \
                 or os.path.expanduser('~\\AppData\\Local')
         return Path(local, 'daam')
-
-
-def compute_token_merge_indices(tokenizer, prompt: str, word: str, word_idx: int = None, offset_idx: int = 0):
-    merge_idxs = []
-    tokens = tokenizer.tokenize(prompt.lower())
-    if word_idx is None:
-        word = word.lower()
-        search_tokens = tokenizer.tokenize(word)
-        start_indices = [x + offset_idx for x in range(len(tokens)) if tokens[x:x + len(search_tokens)] == search_tokens]
-        for indice in start_indices:
-            merge_idxs += [i + indice for i in range(0, len(search_tokens))]
-        if not merge_idxs:
-            raise Exception(f'Search word {word} not found in prompt!')
-    else:
-        merge_idxs.append(word_idx)
-
-    return [x + 1 for x in merge_idxs], word_idx  # Offset by 1.
-
-
-nlp = None
-
-
-@lru_cache(maxsize=100000)
-def cached_nlp(prompt: str, type='en_core_web_md'):
-    global nlp
-
-    if nlp is None:
-        try:
-            nlp = spacy.load(type)
-        except OSError:
-            import os
-            os.system(f'python -m spacy download {type}')
-            nlp = spacy.load(type)
-
-    return nlp(prompt)

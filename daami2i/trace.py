@@ -63,21 +63,6 @@ class DiffusionHeatMapHooker(AggregateHooker):
     def layer_names(self):
         return self.locator.layer_names
 
-    def to_experiment(self, path, seed=None, id='.', subtype='.', **compute_kwargs):
-        # type: (Union[Path, str], int, str, str, Dict[str, Any]) -> GenerationExperiment
-        """Exports the last generation call to a serializable generation experiment."""
-
-        return GenerationExperiment(
-            self.last_image,
-            self.compute_global_heat_map(**compute_kwargs).heat_maps,
-            self.last_prompt,
-            seed=seed,
-            id=id,
-            subtype=subtype,
-            path=path,
-            tokenizer=self.pipe.tokenizer,
-        )
-
     def compute_global_heat_map(self, factors=None, head_idx=None, layer_idx=None, normalize=False):
         # type: (str, List[float], int, int, bool) -> GlobalHeatMap
         """
@@ -265,8 +250,8 @@ class UNetCrossAttentionHooker(ObjectHooker[CrossAttention]):
             hk_self (`UNetCrossAttentionHooker`): pointer to the hook itself.
             self (`CrossAttention`): pointer to the module.
             query (`torch.Tensor`): the query tensor. shape: (batch_size * heads, height * width, image_embedding_size)
-            key (`torch.Tensor`): the key tensor. shape: (batch_size * heads, tokens, text_embedding_size)
-            value (`torch.Tensor`): the value tensor. shape: (batch_size * heads, tokens, text_embedding_size)
+            key (`torch.Tensor`): the key tensor. shape: (batch_size * heads, height * width, text_embedding_size)
+            value (`torch.Tensor`): the value tensor. shape: (batch_size * heads, height * width, text_embedding_size)
         """
         # query.shape = (batch_size * num_heads, latent_image_seq_len, 64) # For SDV2
         # key.shape = (batch_size * num_heads, latent_image_seq_len, 64) # For SDV2
