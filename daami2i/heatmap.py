@@ -140,7 +140,7 @@ class GlobalHeatMap:
             for j in range(self.latent_w):
                 dist = cv2.pointPolygonTest(pts, (i, j), False)
                 if dist == 1.0:
-                    inner_pixs.append((i*self.latent_w) + j)
+                    inner_pixs.append((j*self.latent_w) + i)
         if len(inner_pixs) > 1:
             return PixelHeatMap(self.heat_maps[inner_pixs].mean(0))
         else:
