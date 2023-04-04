@@ -5,8 +5,8 @@ gradio
 ftfy
 transformers==4.24.0
 pandas
-numba
+number
 nltk
 inflect
 joblib
-cv2
+opencv-python
