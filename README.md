@@ -8,7 +8,7 @@ But there for full utilization of the attention heatmaps, the Latent Image Self-
 In [original DAAM paper](https://arxiv.org/abs/2210.04885), the author proposes diffusion attentive attribution maps (DAAM), a cross attention-based approach for interpreting Stable Diffusion for interpretability of token heatmap over latent images. Here, I use the same approach but extended for latent image self-attention heatmaps.
 
 ## Getting Started
-First, install [PyTorch](https://pytorch.org) for your platform.
+First, install [PyTorch](https://pytorch.org) for your platform. You may check out the [Colab Tutorial](https://github.com/RishiDarkDevil/Text-Based-Object-Discovery/blob/main/Experiments/DAAM_Image_Attention_ver2.ipynb)
 
 ### Installation
 The following steps are useful for setting up `daami2i` package in Colab Environment.
