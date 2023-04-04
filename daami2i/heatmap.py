@@ -6,19 +6,20 @@ from typing import List, Any, Dict, Tuple, Set, Iterable
 
 from matplotlib import pyplot as plt
 import numpy as np
+import math
 import PIL.Image
-import spacy.tokens
+import cv2
 import torch
 import torch.nn.functional as F
 
 from .evaluate import compute_ioa
 from .utils import compute_token_merge_indices, cached_nlp, auto_autocast
 
-__all__ = ['GlobalHeatMap', 'RawHeatMapCollection', 'WordHeatMap', 'ParsedHeatMap', 'SyntacticHeatMapPair']
+__all__ = ['GlobalHeatMap', 'RawHeatMapCollection', 'PixelHeatMap', 'ParsedHeatMap', 'SyntacticHeatMapPair']
 
 
-def plot_overlay_heat_map(im, heat_map, word=None, out_file=None, crop=None, color_normalize=True, ax=None):
-    # type: (PIL.Image.Image | np.ndarray, torch.Tensor, str, Path, int, bool, plt.Axes) -> None
+def plot_overlay_heat_map(im, heat_map, out_file=None, crop=None, color_normalize=True, ax=None):
+    # type: (PIL.Image.Image | np.ndarray, torch.Tensor, Path, int, bool, plt.Axes) -> None
     if ax is None:
         plt.clf()
         plt.rcParams.update({'font.size': 24})
@@ -43,20 +44,12 @@ def plot_overlay_heat_map(im, heat_map, word=None, out_file=None, crop=None, col
         im = torch.cat((im, (1 - heat_map.unsqueeze(-1))), dim=-1)
         plt_.imshow(im)
 
-        if word is not None:
-            if ax is None:
-                plt.title(word)
-            else:
-                ax.set_title(word)
-
         if out_file is not None:
             plt.savefig(out_file)
 
 
-class WordHeatMap:
-    def __init__(self, heatmap: torch.Tensor, word: str = None, word_idx: int = None):
-        self.word = word
-        self.word_idx = word_idx
+class PixelHeatMap:
+    def __init__(self, heatmap: torch.Tensor):
         self.heatmap = heatmap
 
     @property
@@ -68,7 +61,6 @@ class WordHeatMap:
         plot_overlay_heat_map(
             image,
             self.expand_as(image, **expand_kwargs),
-            word=self.word,
             out_file=out_file,
             color_normalize=color_normalize,
             ax=ax
@@ -76,8 +68,10 @@ class WordHeatMap:
 
     def expand_as(self, image, absolute=False, threshold=None, plot=False, **plot_kwargs):
         # type: (PIL.Image.Image, bool, float, bool, Dict[str, Any]) -> torch.Tensor
+
         im = self.heatmap.unsqueeze(0).unsqueeze(0)
         im = F.interpolate(im.float().detach(), size=(image.size[0], image.size[1]), mode='bicubic')
+        im = im[0,0]
 
         if not absolute:
             im = (im - im.min()) / (im.max() - im.min() + 1e-8)
@@ -92,14 +86,14 @@ class WordHeatMap:
 
         return im
 
-    def compute_ioa(self, other: 'WordHeatMap'):
+    def compute_ioa(self, other: 'PixelHeatMap'):
         return compute_ioa(self.heatmap, other.heatmap)
 
 
 @dataclass
 class SyntacticHeatMapPair:
-    head_heat_map: WordHeatMap
-    dep_heat_map: WordHeatMap
+    head_heat_map: PixelHeatMap
+    dep_heat_map: PixelHeatMap
     head_text: str
     dep_text: str
     relation: str
@@ -107,40 +101,52 @@ class SyntacticHeatMapPair:
 
 @dataclass
 class ParsedHeatMap:
-    word_heat_map: WordHeatMap
+    word_heat_map: PixelHeatMap
     token: spacy.tokens.Token
 
 
 class GlobalHeatMap:
-    def __init__(self, tokenizer: Any, prompt: str, heat_maps: torch.Tensor):
-        self.tokenizer = tokenizer
+    def __init__(self, heat_maps: torch.Tensor, latent_hw: int):
         self.heat_maps = heat_maps
-        self.prompt = prompt
-        self.compute_word_heat_map = lru_cache(maxsize=50)(self.compute_word_heat_map)
+        self.latent_h = self.latent_w = int(math.sqrt(latent_hw))
 
-    def compute_word_heat_map(self, word: str, word_idx: int = None, offset_idx: int = 0) -> WordHeatMap:
-        merge_idxs, word_idx = compute_token_merge_indices(self.tokenizer, self.prompt, word, word_idx, offset_idx)
-        return WordHeatMap(self.heat_maps[merge_idxs].mean(0), word, word_idx)
+    def compute_pixel_heat_map(self, latent_pixels: List[int] = None) -> PixelHeatMap:
+        if isinstance(latent_pixels, list) and len(latent_pixels) > 1:
+            merge_idxs = latent_pixels
+            return PixelHeatMap(self.heat_maps[merge_idxs].mean(0))
+        else:
+            merge_idxs = latent_pixels
+            return PixelHeatMap(self.heat_maps[merge_idxs])
 
-    def parsed_heat_maps(self) -> Iterable[ParsedHeatMap]:
-        for token in cached_nlp(self.prompt):
-            try:
-                heat_map = self.compute_word_heat_map(token.text)
-                yield ParsedHeatMap(heat_map, token)
-            except ValueError:
-                pass
+    def compute_bbox_heat_map(self, x1: int, y1: int, x2: int, y2: int):
+        if x2 < x1 or y2 < y1:
+            raise Exception('Enter valid bounding box! (x1,y1) is the top-left corner and (x2,y2) is the bottom-right corner.')
+        pix_ids = [x for y in range(y1, y2+1) for x in range((self.latent_w * y) + x1, (self.latent_w * y) + x2 + 1) if x < (self.latent_h * self.latent_w)]
+        if len(pix_ids) > 1:
+            return PixelHeatMap(self.heat_maps[pix_ids].mean(0))
+        else:
+            return PixelHeatMap(self.heat_maps[pix_ids])
 
-    def dependency_relations(self) -> Iterable[SyntacticHeatMapPair]:
-        for token in cached_nlp(self.prompt):
-            if token.dep_ != 'ROOT':
-                try:
-                    dep_heat_map = self.compute_word_heat_map(token.text)
-                    head_heat_map = self.compute_word_heat_map(token.head.text)
+    def compute_contour_heat_map(self, pts: List[List[int]], image_h: int, image_w: int):
+        """
+        pts should be be a list of [x,y] coordinates of the contour
+        image_h and image_w is the image height and width respectively of the original image from which contour is taken
+        """
+        if image_h != image_w:
+            raise Exception('Non-Square images not supported yet! `image_h` should be equal to `image_w')
 
-                    yield SyntacticHeatMapPair(head_heat_map, dep_heat_map, token.head.text, token.text, token.dep_)
-                except ValueError:
-                    pass
-
+        pts = np.array(np.array(pts) * self.latent_h / image_h, np.int32)
+        pts = pts.reshape((-1,1,2))
+        inner_pixs = list()
+        for i in range(self.latent_h):
+            for j in range(self.latent_w):
+                dist = cv2.pointPolygonTest(pts, (i, j), False)
+                if dist == 1.0:
+                    inner_pixs.append((i*self.latent_w) + j)
+        if len(inner_pixs) > 1:
+            return PixelHeatMap(self.heat_maps[inner_pixs].mean(0))
+        else:
+            return PixelHeatMap(self.heat_maps[inner_pixs])
 
 RawHeatMapKey = Tuple[int, int, int]  # factor, layer, head
 

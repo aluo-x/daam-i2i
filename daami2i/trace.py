@@ -42,6 +42,7 @@ class DiffusionHeatMapHooker(AggregateHooker):
             UNetCrossAttentionHooker(
                 x,
                 self,
+                context_size=self.latent_hw,
                 layer_idx=idx,
                 latent_hw=self.latent_hw,
                 load_heads=load_heads,
@@ -77,25 +78,21 @@ class DiffusionHeatMapHooker(AggregateHooker):
             tokenizer=self.pipe.tokenizer,
         )
 
-    def compute_global_heat_map(self, prompt=None, factors=None, head_idx=None, layer_idx=None, normalize=False):
+    def compute_global_heat_map(self, factors=None, head_idx=None, layer_idx=None, normalize=False):
         # type: (str, List[float], int, int, bool) -> GlobalHeatMap
         """
-        Compute the global heat map for the given prompt, aggregating across time (inference steps) and space (different
+        Compute the global heat map for each latent pixel, aggregating across time (inference steps) and space (different
         spatial transformer block heat maps).
 
         Args:
-            prompt: The prompt to compute the heat map for. If none, uses the last prompt that was used for generation.
             factors: Restrict the application to heat maps with spatial factors in this set. If `None`, use all sizes.
             head_idx: Restrict the application to heat maps with this head index. If `None`, use all heads.
             layer_idx: Restrict the application to heat maps with this layer index. If `None`, use all layers.
 
         Returns:
-            A heat map object for computing word-level heat maps.
+            A heat map object for computing latent pixel-level heat maps.
         """
         heat_maps = self.all_heat_maps
-
-        if prompt is None:
-            prompt = self.last_prompt
 
         if factors is None:
             factors = {0, 1, 2, 4, 8, 16, 32, 64}
@@ -113,20 +110,24 @@ class DiffusionHeatMapHooker(AggregateHooker):
                     all_merges.append(F.interpolate(heat_map, size=(x, x), mode='bicubic').clamp_(min=0))
 
             try:
-                maps = torch.stack(all_merges, dim=0)
+                maps = torch.zeros_like(all_merges[0])
+                # maps = torch.stack(all_merges, dim=0)
+                for map in all_merges:
+                  maps += map
             except RuntimeError:
                 if head_idx is not None or layer_idx is not None:
                     raise RuntimeError('No heat maps found for the given parameters.')
                 else:
                     raise RuntimeError('No heat maps found. Did you forget to call `with trace(...)` during generation?')
 
-            maps = maps.mean(0)[:, 0]
-            maps = maps[:len(self.pipe.tokenizer.tokenize(prompt)) + 2]  # 1 for SOS and 1 for padding
+            # maps = maps.mean(0)[:, 0]
+            maps = maps / len(all_merges)
+            maps = maps[:, 0]
 
             if normalize:
                 maps = maps / (maps[1:-1].sum(0, keepdim=True) + 1e-6)  # drop out [SOS] and [PAD] for proper probabilities
 
-        return GlobalHeatMap(self.pipe.tokenizer, prompt, maps)
+        return GlobalHeatMap(maps, self.latent_hw)
 
 
 class PipelineHooker(ObjectHooker[StableDiffusionPipeline]):
@@ -166,7 +167,7 @@ class UNetCrossAttentionHooker(ObjectHooker[CrossAttention]):
             self,
             module: CrossAttention,
             parent_trace: 'trace',
-            context_size: int = 77,
+            context_size: int = 4096,
             layer_idx: int = 0,
             latent_hw: int = 9216,
             load_heads: bool = False,
@@ -194,13 +195,12 @@ class UNetCrossAttentionHooker(ObjectHooker[CrossAttention]):
     @torch.no_grad()
     def _unravel_attn(self, x):
         # type: (torch.Tensor) -> torch.Tensor
-        # x shape: (heads, height * width, tokens)
+        # x shape: (heads, height * width, height * width)
         """
         Unravels the attention, returning it as a collection of heat maps.
 
         Args:
-            x (`torch.Tensor`): cross attention slice/map between the words and the tokens.
-            value (`torch.Tensor`): the value tensor.
+            x (`torch.Tensor`): self attention slice/map between the image and image.
 
         Returns:
             `List[Tuple[int, torch.Tensor]]`: the list of heat maps across heads.
@@ -212,11 +212,11 @@ class UNetCrossAttentionHooker(ObjectHooker[CrossAttention]):
         with auto_autocast(dtype=torch.float32):
             for map_ in x:
                 map_ = map_.view(map_.size(0), h, w)
-                map_ = map_[map_.size(0) // 2:]  # Filter out unconditional
+                # map_ = map_[map_.size(0) // 2:]  # Filter out unconditional -- Not sure why this is there
                 maps.append(map_)
 
-        maps = torch.stack(maps, 0)  # shape: (tokens, heads, height, width)
-        return maps.permute(1, 0, 2, 3).contiguous()  # shape: (heads, tokens, height, width)
+        maps = torch.stack(maps, 0)  # shape: (height * width, heads, height, width)
+        return maps.permute(1, 0, 2, 3).contiguous()  # shape: (heads, height * width, height, width)
 
     def _hooked_sliced_attention(hk_self, self, query, key, value, sequence_length, dim):
         batch_size_attention = query.shape[0]
@@ -261,14 +261,16 @@ class UNetCrossAttentionHooker(ObjectHooker[CrossAttention]):
     def _hooked_attention(hk_self, self, query, key, value):
         """
         Monkey-patched version of :py:func:`.CrossAttention._attention` to capture attentions and aggregate them.
-
         Args:
             hk_self (`UNetCrossAttentionHooker`): pointer to the hook itself.
             self (`CrossAttention`): pointer to the module.
-            query (`torch.Tensor`): the query tensor.
-            key (`torch.Tensor`): the key tensor.
-            value (`torch.Tensor`): the value tensor.
+            query (`torch.Tensor`): the query tensor. shape: (batch_size * heads, height * width, image_embedding_size)
+            key (`torch.Tensor`): the key tensor. shape: (batch_size * heads, tokens, text_embedding_size)
+            value (`torch.Tensor`): the value tensor. shape: (batch_size * heads, tokens, text_embedding_size)
         """
+        # query.shape = (batch_size * num_heads, latent_image_seq_len, 64) # For SDV2
+        # key.shape = (batch_size * num_heads, latent_image_seq_len, 64) # For SDV2
+        # value.shape = (batch_size * num_heads, latent_image_seq_len, 64) # For SDV2
 
         attention_scores = torch.baddbmm(
             torch.empty(query.shape[0], query.shape[1], key.shape[1], dtype=query.dtype, device=query.device),
@@ -276,23 +278,25 @@ class UNetCrossAttentionHooker(ObjectHooker[CrossAttention]):
             key.transpose(-1, -2),
             beta=0,
             alpha=self.scale,
-        )
-        attn_slice = attention_scores.softmax(dim=-1)
+        ) # shape: (batch_size * num_heads, latent_image_seq_len, latent_image_seq_len) # For SDV2: (batch_size * 10, 4096, 4096)
 
-        if hk_self.save_heads:
+        attn_slice = attention_scores.softmax(dim=-1) # shape: (batch_size * 10, 4096, 4096)
+
+        if hk_self.save_heads: # save the attention slices locally if wanting to inspect
             hk_self._save_attn(attn_slice)
         elif hk_self.load_heads:
             attn_slice = hk_self._load_attn()
 
+        # Factor can be thought of as the levels of the UNet
         factor = int(math.sqrt(hk_self.latent_hw // attn_slice.shape[1]))
         hk_self.trace._gen_idx += 1
 
         if attn_slice.shape[-1] == hk_self.context_size and factor != 8:
             # shape: (batch_size, 64 // factor, 64 // factor, 77)
-            maps = hk_self._unravel_attn(attn_slice)
+            maps = hk_self._unravel_attn(attn_slice) # shape: (heads, batch_size, height * width, height, width)
 
             for head_idx, heatmap in enumerate(maps):
-                hk_self.heat_maps.update(factor, hk_self.layer_idx, head_idx, heatmap)
+                hk_self.heat_maps.update(factor, hk_self.layer_idx, head_idx, heatmap) # heatmap shape: (batch_size, height * width, height, width)
 
         # compute attention output
         hidden_states = torch.bmm(attn_slice, value)

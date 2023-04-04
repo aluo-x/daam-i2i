@@ -91,10 +91,8 @@ class UNetCrossAttentionLocator(ModuleLocator[CrossAttention]):
     def locate(self, model: UNet2DConditionModel) -> List[CrossAttention]:
         """
         Locate all cross-attention modules in a UNet2DConditionModel.
-
         Args:
             model (`UNet2DConditionModel`): The model to locate the cross-attention modules in.
-
         Returns:
             `List[CrossAttention]`: The list of cross-attention modules.
         """
@@ -113,7 +111,7 @@ class UNetCrossAttentionLocator(ModuleLocator[CrossAttention]):
 
                 for spatial_transformer in unet_block.attentions:
                     for transformer_block in spatial_transformer.transformer_blocks:
-                        blocks.append(transformer_block.attn2)
+                        blocks.append(transformer_block.attn1) # Key to the image attention rather than text attention, attn1 is self-attention
 
                 blocks = [b for idx, b in enumerate(blocks) if self.restrict is None or idx in self.restrict]
                 names = [f'{name}-attn-{i}' for i in range(len(blocks)) if self.restrict is None or i in self.restrict]
