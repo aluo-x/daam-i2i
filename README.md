@@ -1,91 +1,98 @@
-# What the DAAM: Interpreting Stable Diffusion Using Cross Attention
+# DAAM-Image2Image: Extension of DAAM for Image Self-Attention in Diffusion Models
 
-[![HF Spaces](https://img.shields.io/badge/HuggingFace%20Space-online-green.svg)](https://huggingface.co/spaces/tetrisd/Diffusion-Attentive-Attribution-Maps) [![Citation](https://img.shields.io/badge/Citation-arXiv-orange.svg)](https://gist.githubusercontent.com/daemon/c526f4f9ab2d5e946e6bae90a9a02571/raw/02dcc6cb09a39559b39449a7d27d3b950bec39bd/daam-citation.bib) [![PyPi version](https://badgen.net/pypi/v/daam?color=blue)](https://pypi.org/project/daam) [![Downloads](https://static.pepy.tech/badge/daam)](https://pepy.tech/project/daam)
-
+The original DAAM was suitable for Token Heatmaps from Cross-Attention over Latent Image as shown below.
 ![example image](example.jpg)
 
-### Updated to support Stable Diffusion V2.1!
+But there for full utilization of the attention heatmaps, the Latent Image Self-Attention heatmap was also necessary. That is what this extention is for.
 
-I regularly update this codebase. Please submit an issue if you have any questions.
-
-In [our paper](https://arxiv.org/abs/2210.04885), we propose diffusion attentive attribution maps (DAAM), a cross attention-based approach for interpreting Stable Diffusion.
-Check out our demo: https://huggingface.co/spaces/tetrisd/Diffusion-Attentive-Attribution-Maps.
-See our [documentation](https://castorini.github.io/daam/), hosted by GitHub pages, and [our Colab notebook](https://colab.research.google.com/drive/1miGauqa07uHnDoe81NmbmtTtnupmlipv?usp=sharing), updated for v0.0.11.
+In [original DAAM paper](https://arxiv.org/abs/2210.04885), the author proposes diffusion attentive attribution maps (DAAM), a cross attention-based approach for interpreting Stable Diffusion for interpretability of token heatmap over latent images. Here, I use the same approach but extended for latent image self-attention heatmaps.
 
 ## Getting Started
 First, install [PyTorch](https://pytorch.org) for your platform.
-Then, install DAAM with `pip install daam`, unless you want an editable version of the library, in which case do `git clone https://github.com/castorini/daam && pip install -e daam`.
-Finally, login using `huggingface-cli login` to get many stable diffusion models -- you'll need to get a token at [HuggingFace.co](https://huggingface.co/).
 
-### Running the Website Demo
-Simply run `daam-demo` in a shell and navigate to http://localhost:8080.
-The same demo as the one on HuggingFace Spaces will show up.
+### Installation
+The following steps are useful for setting up `daami2i` package in Colab Environment.
 
-### Using DAAM as a CLI Utility
-DAAM comes with a simple generation script for people who want to quickly try it out.
-Try running
-```bash
-$ mkdir -p daam-test && cd daam-test
-$ daam "A dog running across the field."
-$ ls
-a.heat_map.png    field.heat_map.png    generation.pt   output.png  seed.txt
-dog.heat_map.png  running.heat_map.png  prompt.txt
 ```
-Your current working directory will now contain the generated image as `output.png` and a DAAM map for every word, as well as some auxiliary data.
-You can see more options for `daam` by running `daam -h`.
+!git clone https://github.com/RishiDarkDevil/daam-i2i.git
+%cd daam-i2i
+!pip install -r requirements.txt
+```
 
 ### Using DAAM as a Library
 
 Import and use DAAM as follows:
 
 ```python
-from daam import trace, set_seed
-from diffusers import StableDiffusionPipeline
+# Plotting
 from matplotlib import pyplot as plt
-import torch
 
+# Data Handling
+import numpy as np
 
-model_id = 'stabilityai/stable-diffusion-2-base'
-device = 'cuda'
+# Image Processing
+from PIL import Image
 
-pipe = StableDiffusionPipeline.from_pretrained(model_id, use_auth_token=True)
-pipe = pipe.to(device)
+# Image Generation
+from diffusers import StableDiffusionPipeline
+import daami2i
 
-prompt = 'A dog runs across the field'
-gen = set_seed(0)  # for reproducibility
+DEVICE = 'cuda' # device
 
-with torch.cuda.amp.autocast(dtype=torch.float16), torch.no_grad():
-    with trace(pipe) as tc:
-        out = pipe(prompt, num_inference_steps=30, generator=gen)
-        heat_map = tc.compute_global_heat_map()
-        heat_map = heat_map.compute_word_heat_map('dog')
-        heat_map.plot_overlay(out.images[0])
-        plt.show()
+model = StableDiffusionPipeline.from_pretrained('stabilityai/stable-diffusion-2-base')
+model = model.to(DEVICE) # Set it to something else if needed, make sure DAAM supports that
+
+prompt = 'Dinner table with chairs and flower pot'
+
+# Image generation
+with daami2i.trace(model) as trc:
+  output_image = model(prompt).images
+  global_heat_map = trc.compute_global_heat_map()
+  
+print(output_image[0]) # Output image
 ```
+There are 3 types of visualizations available:
+- Pixel-based here. The pixels are numbered in row-major order i.e.
+  - 1     2 .. 64\
+  4033 4034 .. 4096\
+  Only latent image height and width is valid i.e. 64 x 64 so the pixels that can be mentioned is a list from 1 ... 4096.
+  ```python
+  # Compute heatmap for latent pixel lists row-major
+  pixel_heatmap = global_heat_map.compute_pixel_heat_map(list(range(1024))).expand_as(output_image[0]).numpy()
 
-You can also serialize and deserialize the DAAM maps pretty easily:
+  # Casting heatmap from 0-1 floating range to 0-255 unsigned 8 bit integer
+  heatmap = np.array(pixel_heatmap * 255, dtype = np.uint8)
+  
+  plt.imshow(heatmap)
+  ```
 
-```python
-from daam import GenerationExperiment, trace
+- BBox based here. The bounding box upper left and bottom right corner needs to be specified. Again latent height and width are valid ranges.
+  ```python
+  # Compute heatmap for latent bbox pixels with corners specified
+  pixel_heatmap = global_heat_map.compute_bbox_heat_map(0,10,25,64).expand_as(output_image[0]).numpy()
+  
+  # Casting heatmap from 0-1 floating range to 0-255 unsigned 8 bit integer
+  heatmap = np.array(pixel_heatmap * 255, dtype = np.uint8)
+  
+  plt.imshow(heatmap)
+  ```
 
-with trace(pipe) as tc:
-    pipe('A dog and a cat')
-    exp = tc.to_experiment('experiment-dir')
-    exp.save()  # experiment-dir now contains all the data and heat maps
+- Contour based here. The image height and width can be different from the latent height and width. Enter contour and attention map will be generated for that contour containing pixels.
+  ```python
+  # Compute heatmap for inner pixels for contour boundary specified
+  pixel_heatmap = global_heat_map.compute_contour_heat_map([[0,300], [256, 100], [512, 300], [512, 400], [0, 400], [0, 300]], 512, 512).expand_as(output_image[0]).numpy()
 
-exp = GenerationExperiment.load('experiment-dir')  # load the experiment
-```
+  # Casting heatmap from 0-1 floating range to 0-255 unsigned 8 bit integer
+  heatmap = np.array(pixel_heatmap * 255, dtype = np.uint8)
 
-We'll continue adding docs.
-In the meantime, check out the `GenerationExperiment`, `GlobalHeatMap`, and `DiffusionHeatMapHooker` classes, as well as the `daam/run/*.py` example scripts.
-Our datasets are here: https://git.uwaterloo.ca/r33tang/daam-data
+  plt.imshow(heatmap)
+  ```
 
-## See Also
-- [1littlecoder's video](https://www.youtube.com/watch?v=J2WtkA1Xfew) for a code demonstration and Colab notebook of an older version of DAAM.
 
-- [Easiest way to use DAAM script tutorial](https://www.youtube.com/watch?v=XiKyEKJrTLQ)
 
 ## Citation
+
+Original DAAM
 ```
 @article{tang2022daam,
   title={What the {DAAM}: Interpreting Stable Diffusion Using Cross Attention},
