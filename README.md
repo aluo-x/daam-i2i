@@ -49,7 +49,7 @@ with daami2i.trace(model) as trc:
   output_image = model(prompt).images
   global_heat_map = trc.compute_global_heat_map()
   
-print(output_image[0]) # Output image
+display(output_image[0]) # Output image
 ```
 There are 3 types of visualizations available:
 - Pixel-based here. The pixels are numbered in row-major order i.e.
@@ -57,6 +57,7 @@ There are 3 types of visualizations available:
   4033 4034 .. 4096\
   Only latent image height and width is valid (i.e. 64 x 64 for Stable Diffusion v2 base) so the pixels that can be mentioned is a list from 1 ... 4096.
   ```python
+  # Example
   # Compute heatmap for latent pixel lists row-major
   pixel_heatmap = global_heat_map.compute_pixel_heat_map(list(range(1024))).expand_as(output_image[0]).numpy()
 
@@ -68,6 +69,7 @@ There are 3 types of visualizations available:
 
 - BBox based here. The bounding box upper left and bottom right corner needs to be specified. Again latent height and width are valid ranges.
   ```python
+  # Example
   # Compute heatmap for latent bbox pixels with corners specified
   pixel_heatmap = global_heat_map.compute_bbox_heat_map(0,10,25,64).expand_as(output_image[0]).numpy()
   
@@ -79,6 +81,7 @@ There are 3 types of visualizations available:
 
 - Contour based here. The image height and width can be different from the latent height and width. Enter contour and attention map will be generated for that contour containing pixels.
   ```python
+  # Example
   # Compute heatmap for inner pixels for contour boundary specified
   pixel_heatmap = global_heat_map.compute_contour_heat_map([[0,300], [256, 100], [512, 300], [512, 400], [0, 400], [0, 300]], 512, 512).expand_as(output_image[0]).numpy()
 
