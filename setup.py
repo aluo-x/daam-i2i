@@ -2,7 +2,7 @@ import setuptools
 
 setuptools.setup(
     name='daami2i',
-    version=eval(open('daami2i/_version.py').read().strip().split('=')[1]),
+    version='0.0.1',
     author='Rishi Dey Chowdhury',
     license='MIT',
     url='https://github.com/RishiDarkDevil/daam-i2i',
