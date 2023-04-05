@@ -14,9 +14,7 @@ First, install [PyTorch](https://pytorch.org) for your platform. You may check o
 The following steps are useful for setting up `daami2i` package in Colab Environment.
 
 ```
-!git clone https://github.com/RishiDarkDevil/daam-i2i.git
-%cd daam-i2i
-!pip install -r requirements.txt
+!pip install git+https://github.com/RishiDarkDevil/daam-i2i.git
 ```
 
 ### Using DAAM as a Library
