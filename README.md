@@ -93,6 +93,8 @@ There are 3 types of visualizations available:
 
 ## Citation
 
+DAAM-I2I: Add Link to this project as citation in your work.
+
 Original DAAM
 ```
 @article{tang2022daam,
