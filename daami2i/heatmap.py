@@ -109,21 +109,18 @@ class GlobalHeatMap:
         self.latent_h = self.latent_w = int(math.sqrt(latent_hw))
 
     def compute_pixel_heat_map(self, latent_pixels: List[int] = None) -> PixelHeatMap:
-        if isinstance(latent_pixels, list) and len(latent_pixels) > 1:
+        if isinstance(latent_pixels, list):
             merge_idxs = latent_pixels
             return PixelHeatMap(self.heat_maps[merge_idxs].mean(0))
         else:
-            merge_idxs = latent_pixels
-            return PixelHeatMap(self.heat_maps[merge_idxs])
+            merge_idx = latent_pixels
+            return PixelHeatMap(self.heat_maps[merge_idx])
 
     def compute_bbox_heat_map(self, x1: int, y1: int, x2: int, y2: int):
         if x2 < x1 or y2 < y1:
             raise Exception('Enter valid bounding box! (x1,y1) is the top-left corner and (x2,y2) is the bottom-right corner.')
         pix_ids = [x for y in range(y1, y2+1) for x in range((self.latent_w * y) + x1, (self.latent_w * y) + x2 + 1) if x < (self.latent_h * self.latent_w)]
-        if len(pix_ids) > 1:
-            return PixelHeatMap(self.heat_maps[pix_ids].mean(0))
-        else:
-            return PixelHeatMap(self.heat_maps[pix_ids])
+        return PixelHeatMap(self.heat_maps[pix_ids].mean(0))
 
     def compute_contour_heat_map(self, pts: List[List[int]], image_h: int, image_w: int):
         """
@@ -141,10 +138,7 @@ class GlobalHeatMap:
                 dist = cv2.pointPolygonTest(pts, (i, j), False)
                 if dist == 1.0:
                     inner_pixs.append((j*self.latent_w) + i)
-        if len(inner_pixs) > 1:
-            return PixelHeatMap(self.heat_maps[inner_pixs].mean(0))
-        else:
-            return PixelHeatMap(self.heat_maps[inner_pixs])
+        return PixelHeatMap(self.heat_maps[inner_pixs].mean(0))
 
 RawHeatMapKey = Tuple[int, int, int]  # factor, layer, head
 
