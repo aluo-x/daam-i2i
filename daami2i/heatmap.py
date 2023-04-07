@@ -40,7 +40,7 @@ class PixelHeatMap:
     def value(self):
         return self.heatmap
 
-    def plot_overlay(self, imagep, figsize: Tuple[int, int] = (10,10)):
+    def plot_overlay(self, image, figsize: Tuple[int, int] = (10,10)):
         # type: (PIL.Image.Image | np.ndarray, Path, bool, plt.Axes, Dict[str, Any]) -> None
         plot_overlay_heat_map(image, self.expand_as(image), figsize)
 
