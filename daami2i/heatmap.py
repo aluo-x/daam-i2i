@@ -2,7 +2,7 @@ from collections import defaultdict
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
-from typing import List, Any, Dict, Tuple, Set, Iterable, Union
+from typing import List, Any, Dict, Tuple, Set, Iterable, Union, Optional
 
 from matplotlib import pyplot as plt
 import numpy as np
@@ -129,12 +129,22 @@ class GlobalHeatMap:
             pix_ids = [p_id for p_id in range(self.latent_h * self.latent_w) if p_id not in pix_ids]
         return PixelHeatMap(self.heat_maps[pix_ids].mean(0))
 
-    def compute_contour_heat_map(self, pts: List[List[int]], image_h: int, image_w: int, influx: bool = False) -> PixelHeatMap:
+    def compute_contour_heat_map(self, 
+      pts: Union[List[List[int]], List[int]], 
+      image_h: int, image_w: int, influx: bool = False, 
+      guide_heatmap: Optional[torch.tensor] = None) -> PixelHeatMap:
         """
-        pts should be be a list of [x,y] coordinates of the contour
+        pts should be a represent a single polygon multi-piece polygon is not handled by this function, check out `segmentation_heat_map`
+        pts should be be a list of [x,y] coordinates of the contour 
+            or a list of [x1,y1,x2,y2,...,xn,yn] (i.e. same as [[x1,y1], [x2.y2], ...] just the inner lists are unravelled)
         image_h and image_w is the image height and width respectively of the original image from which contour is taken
+        guide_heatmap is the same as described in `compute_guided_heat_map`, in this case only the pixels of the `guide_heatmap` will be considered which are 
+        contained inside the contour
         returns the heatmap for the mean of the pixels lying inside this contour
         """
+        if isinstance(pts[0], list):
+            pts = [[pts[i], pts[i+1]] for i in range(0, len(pts), 2)]
+
         if image_h != image_w:
             raise Exception('Non-Square images not supported yet! `image_h` should be equal to `image_w')
 
@@ -146,10 +156,62 @@ class GlobalHeatMap:
                 dist = cv2.pointPolygonTest(pts, (i, j), False)
                 if dist == 1.0:
                     inner_pixs.append((j*self.latent_w) + i)
+        
         if influx: # If influx is true we we calculate the heatmap mean of all the pixels except the one passed
             inner_pixs = [p_id for p_id in range(self.latent_h * self.latent_w) if p_id not in inner_pixs]
 
-        return PixelHeatMap(self.heat_maps[inner_pixs].mean(0))
+        if guide_heatmap is None:
+            return PixelHeatMap(self.heat_maps[inner_pixs].mean(0))
+        else:
+            # Finding out the inner_pixs' each pixel's weight as obtained from `guide_heatmap`
+            pix_weights = torch.tensor([guide_heatmap[pix_id // self.latent_w, pix_id % self.latent_w] for pix_id in inner_pixs])[:,None,None]
+            # return the weighted heatmap
+            return PixelHeatMap((self.heat_maps[inner_pixs] * pix_weights[:, None, None]).mean(0))
+
+    def compute_segmentation_heat_map(self, 
+      segments: Union[List[List[List[int]]], List[List[int]]], 
+      image_h: int, image_w: int, 
+      segment_weights: Optional[torch.tensor] = None, guide_heatmap: Optional[torch.tensor] = None) --> PixelHeatMap:
+        """
+        Pass in the list of contours like this [[x1,y1,x2,y2,....], [p1,q1,p2,q2,...], ..] or [[[x1,y1],[x2,y2],....], [[p1,q1],[p2,q2],...], ..]
+        This finds the mean heatmap for all the pixel heatmaps for the pixels lying inside each of these contours together.
+        segments: list of contours in the format explained above
+        image_h: the height of the image according to which the `segments` is provided
+        image_w: the width of the image according to which the `segments` is provided
+        segment_weights: 1D tensor of the weight to be given to each segment in `segments` must be of the same length as the number of segment in `segments`
+        """
+        segment_heatmaps = list()
+        for segment in segments:
+            # Compute heatmap for inner pixels for contour boundary specified
+            segment_heatmap = self.compute_contour_heat_map(segment, image_h, image_w, guide_heatmap=guide_heatmap)
+
+            segment_heatmaps.append(segment_heatmap.heatmap)
+
+        if segment_weights is None:
+            return PixelHeatMap(torch.stack(segment_heatmaps).mean(0))
+        else:
+            return PixelHeatMap((torch.stack(segment_heatmaps) * segment_weights[:, None, None]).mean(0))
+
+
+    def compute_guided_heat_map(self, guide_heatmap: torch.tensor) --> PixelHeatMap:
+        """
+        For each pixel in the latent image we have one heatmap. Now, with a guiding heatmap
+        we can merge all these pixel heatmaps with a weighted average according to the weights 
+        given to each pixel in the guiding heatmap. 
+
+        guide_heatmap: A guiding heatmap of the dimension of the latent image. It should be a 2D torch.tensor
+        """
+
+        # To store weighted average of all the heatmaps with weights given in the `guide_heatmap`
+        heatmap = torch.zeros((self.latent_h, self.latent_w))
+
+        for i in range(self.latent_h):
+            for j in range(self.latent_w):
+                heatmap += self.compute_pixel_heat_map(self.latent_w * i + j).heatmap * guide_heatmap[i][j].item()
+
+        heatmap /= guide_heatmap.sum().item()
+
+        return PixelHeatMap(heatmap)
 
 RawHeatMapKey = Tuple[int, int, int]  # factor, layer, head
 
