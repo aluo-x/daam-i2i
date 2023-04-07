@@ -142,7 +142,7 @@ class GlobalHeatMap:
         contained inside the contour
         returns the heatmap for the mean of the pixels lying inside this contour
         """
-        if isinstance(pts[0], list):
+        if isinstance(pts[0], int):
             pts = [[pts[i], pts[i+1]] for i in range(0, len(pts), 2)]
 
         if image_h != image_w:
