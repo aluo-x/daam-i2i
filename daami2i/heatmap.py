@@ -193,7 +193,7 @@ class GlobalHeatMap:
             return PixelHeatMap((torch.stack(segment_heatmaps) * segment_weights[:, None, None] / segment_weights.sum().item()).mean(0))
 
 
-    def compute_guided_heat_map(self, guide_heatmap: torch.tensor) --> PixelHeatMap:
+    def compute_guided_heat_map(self, guide_heatmap: torch.tensor) -> PixelHeatMap:
         """
         For each pixel in the latent image we have one heatmap. Now, with a guiding heatmap
         we can merge all these pixel heatmaps with a weighted average according to the weights 
