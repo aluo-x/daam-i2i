@@ -6,8 +6,6 @@ DAAM-Image2Image is an extension for Diffusion Attentive Attribution Map which c
 - An immediate benefit of `DAAM-I2I` over `DAAM` is segmentation and object detection tasks for the [TITAN](https://github.com/RishiDarkDevil/TITAN) workflow (`DAAM-I2I` results on left and `DAAM` on the right)
   ![example segment](segment-example.png)
 
-But there for full utilization of the attention heatmaps, the Latent Image Self-Attention heatmap was also necessary. That is what this extention is for.
-
 In [original DAAM paper](https://arxiv.org/abs/2210.04885), the author proposes diffusion attentive attribution maps (DAAM), a cross attention-based approach for interpreting Stable Diffusion for interpretability of token heatmap over latent images. Here, I use the same approach but extended for latent image self-attention heatmaps.
 
 ## Getting Started
@@ -53,13 +51,13 @@ with daami2i.trace(model) as trc:
 display(output_image[0]) # Output image
 ```
 There are 3 types of visualizations available:
-- Pixel-based here. The pixels are numbered in row-major order i.e.
-  - 1     2 .. 64\
-  4033 4034 .. 4096\
-  Only latent image height and width is valid (i.e. 64 x 64 for Stable Diffusion v2 base) so the pixels that can be mentioned is a list from 1 ... 4096.
+- **Pixel-based:** The pixels are numbered in row-major order i.e.
+  - 0     1 .. 63\
+  4032 4033 .. 4095\
+  Only latent image height and width is valid (i.e. 64 x 64 for Stable Diffusion v2 base) so the pixels that can be mentioned is a list (i.e. from 0 ... 4095 for SDV2).
   ```python
   # Example
-  # Compute heatmap for latent pixel lists row-major
+  # Compute heatmap for latent pixel lists row-major. It will return the heatmap for pixels [0,1,..,1023]
   pixel_heatmap = global_heat_map.compute_pixel_heat_map(list(range(1024))).expand_as(output_image[0]).numpy()
 
   # Casting heatmap from 0-1 floating range to 0-255 unsigned 8 bit integer
@@ -68,7 +66,7 @@ There are 3 types of visualizations available:
   plt.imshow(heatmap)
   ```
 
-- BBox based here. The bounding box upper left and bottom right corner needs to be specified. Again latent height and width are valid ranges.
+- **BBox-based:** The bounding box's upper left and bottom right corner needs to be specified. Again latent height and width are valid ranges (i.e. for SDV2 the top-left corner of the bbox cannot be more lefter or higher than 0,0 and the bottom-right corner of the bbox cannot be more righter or downer than 63,63).
   ```python
   # Example
   # Compute heatmap for latent bbox pixels with corners specified
@@ -80,7 +78,7 @@ There are 3 types of visualizations available:
   plt.imshow(heatmap)
   ```
 
-- Contour based here. The image height and width can be different from the latent height and width. Enter contour and attention map will be generated for that contour containing pixels.
+- **Contour-based:**. The image height and width can be different from the latent height and width. Enter contour and attention map will be generated for that contour containing pixels i.e. if you have a contour for the generated image (say 512 x 512) then the contour lines will be on this bigger image and not on the latent image. While calling make sure to pass the image size as shown below. 
   ```python
   # Example
   # Compute heatmap for inner pixels for contour boundary specified
