@@ -145,7 +145,7 @@ class GlobalHeatMap:
             pix_ids = [p_id for p_id in range(self.latent_h * self.latent_w) if p_id not in pix_ids]
         return PixelHeatMap(self.heat_maps[pix_ids].mean(0))
 
-    def compute_contour_heat_map(self, pts: List[List[int]], image_h: int, image_w: int) -> PixelHeatMap:
+    def compute_contour_heat_map(self, pts: List[List[int]], image_h: int, image_w: int, influx: bool = False) -> PixelHeatMap:
         """
         pts should be be a list of [x,y] coordinates of the contour
         image_h and image_w is the image height and width respectively of the original image from which contour is taken
