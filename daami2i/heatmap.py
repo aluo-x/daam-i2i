@@ -50,15 +50,9 @@ class PixelHeatMap:
         im = self.heatmap.unsqueeze(0).unsqueeze(0)
         im = F.interpolate(im.float().detach(), size=(image.size[0], image.size[1]), mode='bicubic')
         im = im[0,0]
-
-        if not absolute:
-            im = (im - im.min()) / (im.max() - im.min() + 1e-8)
-
-        if threshold:
-            im = (im > threshold).float()
-
+        im = (im - im.min()) / (im.max() - im.min() + 1e-8)
         im = im.cpu().detach().squeeze()
-
+        
         return im
 
     def compute_ioa(self, other: 'PixelHeatMap'):
