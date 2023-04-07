@@ -18,34 +18,18 @@ from .utils import auto_autocast
 __all__ = ['GlobalHeatMap', 'RawHeatMapCollection', 'PixelHeatMap', 'ParsedHeatMap', 'SyntacticHeatMapPair']
 
 
-def plot_overlay_heat_map(im, heat_map, out_file=None, crop=None, color_normalize=True, ax=None):
-    # type: (PIL.Image.Image | np.ndarray, torch.Tensor, Path, int, bool, plt.Axes) -> None
-    if ax is None:
-        plt.clf()
-        plt.rcParams.update({'font.size': 24})
-        plt_ = plt
-    else:
-        plt_ = ax
+def plot_overlay_heat_map(im, heat_map, figsize: Tuple[int, int] =(10,10)):
+    # type: (PIL.Image.Image | np.ndarray, torch.Tensor) -> None
 
     with auto_autocast(dtype=torch.float32):
+        plt.figure(figsize=figsize)
+        plt.axis('off')
         im = np.array(im)
-
-        if crop is not None:
-            heat_map = heat_map.squeeze()[crop:-crop, crop:-crop]
-            im = im[crop:-crop, crop:-crop]
-
-        if color_normalize:
-            plt_.imshow(heat_map.squeeze().cpu().numpy(), cmap='jet')
-        else:
-            heat_map = heat_map.clamp_(min=0, max=1)
-            plt_.imshow(heat_map.squeeze().cpu().numpy(), cmap='jet', vmin=0.0, vmax=1.0)
+        plt.imshow(heat_map.squeeze().cpu().numpy(), cmap='jet')
 
         im = torch.from_numpy(im).float() / 255
         im = torch.cat((im, (1 - heat_map.unsqueeze(-1))), dim=-1)
-        plt_.imshow(im)
-
-        if out_file is not None:
-            plt.savefig(out_file)
+        plt.imshow(im)
 
 
 class PixelHeatMap:
@@ -127,10 +111,10 @@ class GlobalHeatMap:
             return PixelHeatMap(self.heat_maps[merge_idxs].mean(0))
         else:
             if not influx: 
-                merge_idx = latent_pixels
+                merge_idx = [latent_pixels]
             else: # If influx is true we we calculate the heatmap mean of all the pixels except the one passed
                 merge_idx = [p_id for p_id in range(self.latent_h * self.latent_w) if p_id != latent_pixels]
-            return PixelHeatMap(self.heat_maps[merge_idx])
+            return PixelHeatMap(self.heat_maps[merge_idx].mean(0))
 
     def compute_bbox_heat_map(self, x1: int, y1: int, x2: int, y2: int, influx: bool = False) -> PixelHeatMap:
         """
