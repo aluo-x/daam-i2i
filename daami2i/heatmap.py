@@ -108,24 +108,48 @@ class GlobalHeatMap:
         self.heat_maps = heat_maps
         self.latent_h = self.latent_w = int(math.sqrt(latent_hw))
 
-    def compute_pixel_heat_map(self, latent_pixels: List[int] = None) -> PixelHeatMap:
+    def compute_pixel_heat_map(self, latent_pixels: List[int] | int = None, influx: bool = False) -> PixelHeatMap:
+        """
+        Given a list of pixels or pixel id it returns the heatmap for that pixel or mean of all the heatmaps corresponding
+        to those pixels.
+        The pixel ids should adhere to row-major latent image representation i.e.
+        0 1 ... 63
+        ..........
+        4032...4095
+        for SDV2
+        influx: Calculates the heatmap of all the pixels except the pixel_ids passed
+        """
         if isinstance(latent_pixels, list):
-            merge_idxs = latent_pixels
+            if not influx:
+                merge_idxs = latent_pixels
+            else: # If influx is true we we calculate the heatmap mean of all the pixels except the one passed
+                merge_idxs = [p_id for p_id in range(self.latent_h * self.latent_w) if p_id not in latent_pixels]
             return PixelHeatMap(self.heat_maps[merge_idxs].mean(0))
         else:
-            merge_idx = latent_pixels
+            if not influx: 
+                merge_idx = latent_pixels
+            else: # If influx is true we we calculate the heatmap mean of all the pixels except the one passed
+                merge_idx = [p_id for p_id in range(self.latent_h * self.latent_w) if p_id != latent_pixels]
             return PixelHeatMap(self.heat_maps[merge_idx])
 
-    def compute_bbox_heat_map(self, x1: int, y1: int, x2: int, y2: int):
+    def compute_bbox_heat_map(self, x1: int, y1: int, x2: int, y2: int, influx: bool = False) -> PixelHeatMap:
+        """
+        Given the top-left coordinates (x1,y1) and bottom-right coordinates (x2,y2) it returns the heatmap for the 
+        mean of all the pixels lying inside this bbox.
+        These coordinates should be for the latent image
+        """
         if x2 < x1 or y2 < y1:
             raise Exception('Enter valid bounding box! (x1,y1) is the top-left corner and (x2,y2) is the bottom-right corner.')
         pix_ids = [x for y in range(y1, y2+1) for x in range((self.latent_w * y) + x1, (self.latent_w * y) + x2 + 1) if x < (self.latent_h * self.latent_w)]
+        if influx: # If influx is true we we calculate the heatmap mean of all the pixels except the one passed
+            pix_ids = [p_id for p_id in range(self.latent_h * self.latent_w) if p_id not in pix_ids]
         return PixelHeatMap(self.heat_maps[pix_ids].mean(0))
 
-    def compute_contour_heat_map(self, pts: List[List[int]], image_h: int, image_w: int):
+    def compute_contour_heat_map(self, pts: List[List[int]], image_h: int, image_w: int) -> PixelHeatMap:
         """
         pts should be be a list of [x,y] coordinates of the contour
         image_h and image_w is the image height and width respectively of the original image from which contour is taken
+        returns the heatmap for the mean of the pixels lying inside this contour
         """
         if image_h != image_w:
             raise Exception('Non-Square images not supported yet! `image_h` should be equal to `image_w')
@@ -138,6 +162,9 @@ class GlobalHeatMap:
                 dist = cv2.pointPolygonTest(pts, (i, j), False)
                 if dist == 1.0:
                     inner_pixs.append((j*self.latent_w) + i)
+        if influx: # If influx is true we we calculate the heatmap mean of all the pixels except the one passed
+            inner_pixs = [p_id for p_id in range(self.latent_h * self.latent_w) if p_id not in inner_pixs]
+
         return PixelHeatMap(self.heat_maps[inner_pixs].mean(0))
 
 RawHeatMapKey = Tuple[int, int, int]  # factor, layer, head
