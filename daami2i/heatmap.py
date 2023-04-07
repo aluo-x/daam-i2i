@@ -171,7 +171,7 @@ class GlobalHeatMap:
     def compute_segmentation_heat_map(self, 
       segments: Union[List[List[List[int]]], List[List[int]]], 
       image_h: int, image_w: int, 
-      segment_weights: Optional[torch.tensor] = None, guide_heatmap: Optional[torch.tensor] = None) --> PixelHeatMap:
+      segment_weights: Optional[torch.tensor] = None, guide_heatmap: Optional[torch.tensor] = None) -> PixelHeatMap:
         """
         Pass in the list of contours like this [[x1,y1,x2,y2,....], [p1,q1,p2,q2,...], ..] or [[[x1,y1],[x2,y2],....], [[p1,q1],[p2,q2],...], ..]
         This finds the mean heatmap for all the pixel heatmaps for the pixels lying inside each of these contours together.
