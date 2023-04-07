@@ -2,7 +2,7 @@ from collections import defaultdict
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
-from typing import List, Any, Dict, Tuple, Set, Iterable
+from typing import List, Any, Dict, Tuple, Set, Iterable, Union
 
 from matplotlib import pyplot as plt
 import numpy as np
@@ -108,7 +108,7 @@ class GlobalHeatMap:
         self.heat_maps = heat_maps
         self.latent_h = self.latent_w = int(math.sqrt(latent_hw))
 
-    def compute_pixel_heat_map(self, latent_pixels: List[int] | int = None, influx: bool = False) -> PixelHeatMap:
+    def compute_pixel_heat_map(self, latent_pixels: Union[List[int], int] = None, influx: bool = False) -> PixelHeatMap:
         """
         Given a list of pixels or pixel id it returns the heatmap for that pixel or mean of all the heatmaps corresponding
         to those pixels.
