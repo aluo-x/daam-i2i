@@ -18,7 +18,7 @@ from .utils import auto_autocast
 __all__ = ['GlobalHeatMap', 'RawHeatMapCollection', 'PixelHeatMap', 'ParsedHeatMap', 'SyntacticHeatMapPair']
 
 
-def plot_overlay_heat_map(im, heat_map, figsize: Tuple[int, int] =(10,10)):
+def plot_overlay_heat_map(im, heat_map, figsize: Tuple[int, int] = (10,10)):
     # type: (PIL.Image.Image | np.ndarray, torch.Tensor) -> None
 
     with auto_autocast(dtype=torch.float32):
@@ -40,17 +40,11 @@ class PixelHeatMap:
     def value(self):
         return self.heatmap
 
-    def plot_overlay(self, image, out_file=None, color_normalize=True, ax=None, **expand_kwargs):
+    def plot_overlay(self, imagep, figsize: Tuple[int, int] = (10,10)):
         # type: (PIL.Image.Image | np.ndarray, Path, bool, plt.Axes, Dict[str, Any]) -> None
-        plot_overlay_heat_map(
-            image,
-            self.expand_as(image, **expand_kwargs),
-            out_file=out_file,
-            color_normalize=color_normalize,
-            ax=ax
-        )
+        plot_overlay_heat_map(image, self.expand_as(image), figsize)
 
-    def expand_as(self, image, absolute=False, threshold=None, plot=False, **plot_kwargs):
+    def expand_as(self, image):
         # type: (PIL.Image.Image, bool, float, bool, Dict[str, Any]) -> torch.Tensor
 
         im = self.heatmap.unsqueeze(0).unsqueeze(0)
@@ -64,9 +58,6 @@ class PixelHeatMap:
             im = (im > threshold).float()
 
         im = im.cpu().detach().squeeze()
-
-        if plot:
-            self.plot_overlay(image, **plot_kwargs)
 
         return im
 
