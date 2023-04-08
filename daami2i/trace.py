@@ -26,7 +26,8 @@ class DiffusionHeatMapHooker(AggregateHooker):
             low_memory: bool = False,
             load_heads: bool = False,
             save_heads: bool = False,
-            data_dir: str = None
+            data_dir: str = None,
+            track_all: bool = False
     ):
         self.all_heat_maps = RawHeatMapCollection()
         h = (pipeline.unet.config.sample_size * pipeline.vae_scale_factor)
@@ -47,7 +48,8 @@ class DiffusionHeatMapHooker(AggregateHooker):
                 latent_hw=self.latent_hw,
                 load_heads=load_heads,
                 save_heads=save_heads,
-                data_dir=data_dir
+                data_dir=data_dir,
+                track_all=track_all
             ) for idx, x in enumerate(self.locator.locate(pipeline.unet))
         ]
 
@@ -158,6 +160,7 @@ class UNetCrossAttentionHooker(ObjectHooker[CrossAttention]):
             load_heads: bool = False,
             save_heads: bool = False,
             data_dir: Union[str, Path] = None,
+            track_all: bool = False
     ):
         super().__init__(module)
         self.heat_maps = parent_trace.all_heat_maps
@@ -168,6 +171,9 @@ class UNetCrossAttentionHooker(ObjectHooker[CrossAttention]):
         self.load_heads = load_heads
         self.save_heads = save_heads
         self.trace = parent_trace
+
+        # Whether to track all attentions (even if the attention heatmaps are of different size)
+        self.track_all = track_all
 
         if data_dir is not None:
             data_dir = Path(data_dir)
@@ -276,7 +282,14 @@ class UNetCrossAttentionHooker(ObjectHooker[CrossAttention]):
         factor = int(math.sqrt(hk_self.latent_hw // attn_slice.shape[1]))
         hk_self.trace._gen_idx += 1
 
-        if attn_slice.shape[-1] == hk_self.context_size and factor != 8:
+        if not self.track_all:
+            if attn_slice.shape[-1] == hk_self.context_size and factor != 8:
+                # shape: (batch_size, 64 // factor, 64 // factor, 77)
+                maps = hk_self._unravel_attn(attn_slice) # shape: (heads, batch_size, height * width, height, width)
+
+                for head_idx, heatmap in enumerate(maps):
+                    hk_self.heat_maps.update(factor, hk_self.layer_idx, head_idx, heatmap) # heatmap shape: (batch_size, height * width, height, width)
+        else:
             # shape: (batch_size, 64 // factor, 64 // factor, 77)
             maps = hk_self._unravel_attn(attn_slice) # shape: (heads, batch_size, height * width, height, width)
 
