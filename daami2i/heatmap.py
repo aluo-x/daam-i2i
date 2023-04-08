@@ -206,7 +206,7 @@ class GlobalHeatMap:
         """
 
         # To store weighted average of all the heatmaps with weights given in the `guide_heatmap`
-        heatmap = torch.zeros((self.latent_h, self.latent_w)).to('cuda' if self.heatmap.get_device() == 0 else 'cpu')
+        heatmap = torch.zeros((self.latent_h, self.latent_w)).to('cuda' if self.heat_maps.get_device() == 0 else 'cpu')
 
         for i in range(self.latent_h):
             for j in range(self.latent_w):
