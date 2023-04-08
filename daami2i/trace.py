@@ -282,7 +282,7 @@ class UNetCrossAttentionHooker(ObjectHooker[CrossAttention]):
         factor = int(math.sqrt(hk_self.latent_hw // attn_slice.shape[1]))
         hk_self.trace._gen_idx += 1
 
-        if not self.track_all:
+        if not hk_self.track_all:
             if attn_slice.shape[-1] == hk_self.context_size and factor != 8:
                 # shape: (batch_size, 64 // factor, 64 // factor, 77)
                 maps = hk_self._unravel_attn(attn_slice) # shape: (heads, batch_size, height * width, height, width)
