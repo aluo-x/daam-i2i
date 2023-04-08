@@ -167,8 +167,12 @@ class GlobalHeatMap:
               # Finding out the inner_pixs' each pixel's weight as obtained from `guide_heatmap`
               pix_weights = torch.tensor([guide_heatmap[pix_id // self.latent_w, pix_id % self.latent_w] for pix_id in inner_pixs])[:,None,None]
               pix_weights = pix_weights.cpu()
+              heatmap = torch.zeros((self.latent_h, self.latent_w)).cpu()
+              for idx, pix_id in enumerate(inner_pixs):
+                  heatmap += (self.heat_maps[pix_id] * pix_weights[idx])
+              heatmap /= pix_weights.sum().item()
               # return the weighted heatmap
-              return PixelHeatMap((self.heat_maps[inner_pixs] * pix_weights[:, None, None]).sum(0) / pix_weights.sum().item())
+              return PixelHeatMap(heatmap)
 
     def compute_segmentation_heat_map(self, 
         segments: Union[List[List[List[int]]], List[List[int]]], 
@@ -195,8 +199,12 @@ class GlobalHeatMap:
               # Finding out the inner_pixs' each pixel's weight as obtained from `guide_heatmap`
               pix_weights = torch.tensor([guide_heatmap[pix_id // self.latent_w, pix_id % self.latent_w] for pix_id in segments_inner_pixs])[:,None,None]
               pix_weights = pix_weights.cpu()
+              heatmap = torch.zeros((self.latent_h, self.latent_w)).cpu()
+              for idx, pix_id in enumerate(segments_inner_pixs):
+                  heatmap += (self.heat_maps[pix_id] * pix_weights[idx])
+              heatmap /= pix_weights.sum().item()
               # return the weighted heatmap
-              return PixelHeatMap((self.heat_maps[segments_inner_pixs] * pix_weights[:, None, None]).sum(0) / pix_weights.sum().item())
+              return PixelHeatMap(heatmap)
 
     def compute_guided_heat_map(self, guide_heatmap: torch.tensor) -> PixelHeatMap:
         """
