@@ -8,10 +8,12 @@ DAAM-Image2Image is an extension for Diffusion Attentive Attribution Map which c
 
 In [original DAAM paper](https://arxiv.org/abs/2210.04885), the author proposes diffusion attentive attribution maps (DAAM), a cross attention-based approach for interpreting Stable Diffusion for interpretability of token heatmap over latent images. Here, I use the same approach but extended for latent image self-attention heatmaps.
 
-**NOTE:** `daami2i` alone is just a self-attention image heatmap generator for diffusion models. But when combined with `daam` cross-attention text-image heatmap generator with optimal merging or weighing schemes, it produces fantastic results as shown above. These schemes are not a part of this `daami2i` package yet, and are available through `TITAN`. Check out more on [TITAN](https://github.com/RishiDarkDevil/TITAN) and it's easy to use `titan` package. 
+**NOTE:** `daami2i` alone is just a self-attention image heatmap generator for diffusion models. But when combined with `daam` cross-attention text-image heatmap generator with optimal merging or weighing schemes and additions, it produces fantastic results as shown above.
 
 ## Getting Started
-First, install [PyTorch](https://pytorch.org) for your platform. You may check out the [Colab Tutorial](https://github.com/RishiDarkDevil/Text-Based-Object-Discovery/blob/main/Experiments/DAAM_Image_Attention_ver2.ipynb)
+First, install [PyTorch](https://pytorch.org) for your platform. 
+- You may check out the [Notebook](https://github.com/RishiDarkDevil/Text-Based-Object-Discovery/blob/main/Experiments/DAAM_Image_Attention_ver2.ipynb) to get started with the basics.
+- If you interested in various merging schemes for generate interesting heatmaps like the one shown above and use them for object detection leveraging [TITAN](https://github.com/RishiDarkDevil/TITAN), check out this [Colab Tutorial](https://colab.research.google.com/drive/1OeKbTPrtsovA08a5qztilaoWlV_emMIU?usp=sharing)
 
 ### Installation
 The following steps are useful for setting up `daami2i` package in Colab Environment.
@@ -92,7 +94,9 @@ There are 3 types of visualizations available:
   plt.imshow(heatmap)
   ```
 
+- **Multi-Contour based:** To handle merging pixel heatmaps for multiple contours. It is an extension for the `compute_contour_heat_map` which can handle only single contour. Function: `compute_segmentation_heat_map`
 
+- **Guided Heatmap-based**: It merges all the pixel heatmaps based on some weighing scheme provided by another heatmap called the `guide_heatmap`. The `guide_heatmap` should be of the dimension of the latent image. Function: `compute_guided_heat_map`
 
 ## Citation
 
