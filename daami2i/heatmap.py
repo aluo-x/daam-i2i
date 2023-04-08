@@ -76,6 +76,7 @@ class GlobalHeatMap:
     def __init__(self, heat_maps: torch.Tensor, latent_hw: int):
         self.heat_maps = heat_maps
         self.latent_h = self.latent_w = int(math.sqrt(latent_hw))
+        self.device = 'cuda' if self.heat_maps.get_device() == 0 else 'cpu'
 
     def compute_pixel_heat_map(self, latent_pixels: Union[List[int], int] = None, influx: bool = False) -> PixelHeatMap:
         """
@@ -166,6 +167,7 @@ class GlobalHeatMap:
           else:
               # Finding out the inner_pixs' each pixel's weight as obtained from `guide_heatmap`
               pix_weights = torch.tensor([guide_heatmap[pix_id // self.latent_w, pix_id % self.latent_w] for pix_id in inner_pixs])[:,None,None]
+              pix_weights = pix_weights.to(self.device)
               # return the weighted heatmap
               return PixelHeatMap((self.heat_maps[inner_pixs] * pix_weights[:, None, None]).sum(0) / pix_weights.sum().item())
 
@@ -193,6 +195,7 @@ class GlobalHeatMap:
           else:
               # Finding out the inner_pixs' each pixel's weight as obtained from `guide_heatmap`
               pix_weights = torch.tensor([guide_heatmap[pix_id // self.latent_w, pix_id % self.latent_w] for pix_id in segments_inner_pixs])[:,None,None]
+              pix_weights = pix_weights.to(self.device)
               # return the weighted heatmap
               return PixelHeatMap((self.heat_maps[segments_inner_pixs] * pix_weights[:, None, None]).sum(0) / pix_weights.sum().item())
 
@@ -206,7 +209,7 @@ class GlobalHeatMap:
         """
 
         # To store weighted average of all the heatmaps with weights given in the `guide_heatmap`
-        heatmap = torch.zeros((self.latent_h, self.latent_w)).to('cuda' if self.heat_maps.get_device() == 0 else 'cpu')
+        heatmap = torch.zeros((self.latent_h, self.latent_w)).to(self.device)
 
         for i in range(self.latent_h):
             for j in range(self.latent_w):
