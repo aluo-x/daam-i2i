@@ -54,7 +54,7 @@ with daami2i.trace(model) as trc:
   
 display(output_image[0]) # Output image
 ```
-There are 3 types of visualizations available:
+There types of heatmaps available are:
 - **Pixel-based:** The pixels are numbered in row-major order i.e.
   - 0     1 .. 63\
   4032 4033 .. 4095\
