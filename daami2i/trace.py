@@ -112,7 +112,7 @@ class DiffusionHeatMapHooker(AggregateHooker):
             maps = maps[:, 0]
 
             if normalize:
-                maps = maps / (maps[1:-1].sum(0, keepdim=True) + 1e-6)  # drop out [SOS] and [PAD] for proper probabilities
+                maps = maps / (maps.sum(0, keepdim=True) + 1e-6)  # drop out [SOS] and [PAD] for proper probabilities
 
         return GlobalHeatMap(maps, self.latent_hw)
 
