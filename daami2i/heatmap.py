@@ -75,9 +75,22 @@ class ParsedHeatMap:
 class GlobalHeatMap:
     def __init__(self, heat_maps: torch.Tensor, latent_hw: int):
         self.heat_maps = heat_maps.cpu()
-        self.latent_h = self.latent_w = int(math.sqrt(latent_hw))
+        # The dimensions of the latent image on which the heatmap is generated
+        self.latent_h = self.latent_w = int(math.sqrt(latent_hw)) 
+        # The pixels for which the heatmap is generated (It can be condensed form and thus smaller compared to self.latent_h and latent_w)
+        self.inner_latent_h = self.inner_latent_w = int(math.sqrt(heat_maps.shape[0]))
+        # Scale Factor
+        self.scale_factor = self.latent_h // self.inner_latent_h
 
-    def compute_pixel_heat_map(self, latent_pixels: Union[List[int], int] = None, influx: bool = False) -> PixelHeatMap:
+    def _scale_correction(self, pixel_ids):
+        """
+        scales the pixel ids according to the pixels of the inner latent image dim i.e. self.inner_latent_h and self.inner_latent_w
+        """
+        scaled_pixel_ids = [p_id // self.scale_factor for p_id in pixel_ids]
+        scaled_pixel_ids = [(p_id // self.inner_latent_w) * self.inner_latent_w + (p_id % self.inner_latent_w) for p_id in scaled_pixel_ids]
+        return scaled_pixel_ids
+
+    def compute_pixel_heat_map(self, latent_pixels: Union[List[int], int] = None) -> PixelHeatMap:
         """
         Given a list of pixels or pixel id it returns the heatmap for that pixel or mean of all the heatmaps corresponding
         to those pixels.
@@ -86,22 +99,17 @@ class GlobalHeatMap:
         ..........
         4032...4095
         for SDV2
-        influx: Calculates the heatmap of all the pixels except the pixel_ids passed
         """
         if isinstance(latent_pixels, list):
-            if not influx:
-                merge_idxs = latent_pixels
-            else: # If influx is true we we calculate the heatmap mean of all the pixels except the one passed
-                merge_idxs = [p_id for p_id in range(self.latent_h * self.latent_w) if p_id not in latent_pixels]
+            # scale correction
+            merge_idxs = self._scale_correction(latent_pixels)
+
             return PixelHeatMap(self.heat_maps[merge_idxs].mean(0))
         else:
-            if not influx: 
-                merge_idx = [latent_pixels]
-            else: # If influx is true we we calculate the heatmap mean of all the pixels except the one passed
-                merge_idx = [p_id for p_id in range(self.latent_h * self.latent_w) if p_id != latent_pixels]
+            merge_idx = self._scale_correction([latent_pixels])
             return PixelHeatMap(self.heat_maps[merge_idx].mean(0))
 
-    def compute_bbox_heat_map(self, x1: int, y1: int, x2: int, y2: int, influx: bool = False) -> PixelHeatMap:
+    def compute_bbox_heat_map(self, x1: int, y1: int, x2: int, y2: int) -> PixelHeatMap:
         """
         Given the top-left coordinates (x1,y1) and bottom-right coordinates (x2,y2) it returns the heatmap for the 
         mean of all the pixels lying inside this bbox.
@@ -110,13 +118,13 @@ class GlobalHeatMap:
         if x2 < x1 or y2 < y1:
             raise Exception('Enter valid bounding box! (x1,y1) is the top-left corner and (x2,y2) is the bottom-right corner.')
         pix_ids = [x for y in range(y1, y2+1) for x in range((self.latent_w * y) + x1, (self.latent_w * y) + x2 + 1) if x < (self.latent_h * self.latent_w)]
-        if influx: # If influx is true we we calculate the heatmap mean of all the pixels except the one passed
-            pix_ids = [p_id for p_id in range(self.latent_h * self.latent_w) if p_id not in pix_ids]
+        # scale correction
+        pix_ids = self._scale_correction(pix_ids)
         return PixelHeatMap(self.heat_maps[pix_ids].mean(0))
 
     def inner_pixel_ids(self, 
         pts: Union[List[List[int]], List[int]], 
-        image_h: int, image_w: int, influx: bool = False):
+        image_h: int, image_w: int):
         """
         Given a contour pts in the  it finds the latent image pixels which lie inside this contour
         pts should be a represent a single polygon multi-piece polygon is not handled by this function, check out `segmentation_heat_map`
@@ -138,15 +146,12 @@ class GlobalHeatMap:
                 dist = cv2.pointPolygonTest(pts, (i, j), False)
                 if dist == 1.0:
                     inner_pixs.append((j*self.latent_w) + i)
-        
-        if influx: # If influx is true we we calculate the heatmap mean of all the pixels except the one passed
-            inner_pixs = [p_id for p_id in range(self.latent_h * self.latent_w) if p_id not in inner_pixs]
 
-        return inner_pixs
+        return inner_pixs # It returns the inner_pixs according to self.latent_h and self.latent_w needs to be scale corrected for use
 
     def compute_contour_heat_map(self, 
         pts: Union[List[List[int]], List[int]], 
-        image_h: int, image_w: int, influx: bool = False, 
+        image_h: int, image_w: int,
         guide_heatmap: Optional[torch.tensor] = None) -> PixelHeatMap:
           """
           pts should be a represent a single polygon multi-piece polygon is not handled by this function, check out `segmentation_heat_map`
@@ -159,7 +164,9 @@ class GlobalHeatMap:
           """
           
           # get the latent pixel ids lying inside the contour
-          inner_pixs = self.inner_pixel_ids(pts, image_h, image_w, influx)
+          inner_pixs = self.inner_pixel_ids(pts, image_h, image_w)
+          # scale correction
+          inner_pixs = self._scale_correction(inner_pixs)
 
           if guide_heatmap is None:
               return PixelHeatMap(self.heat_maps[inner_pixs].mean(0))
@@ -192,6 +199,9 @@ class GlobalHeatMap:
               segment_inner_pixs = self.inner_pixel_ids(segment, image_h, image_w)
 
               segments_inner_pixs.extend(segment_inner_pixs)
+
+          # scale correction
+          segments_inner_pixs = self._scale_correction(segments_inner_pixs)
 
           if guide_heatmap is None:
               return PixelHeatMap(self.heat_maps[segments_inner_pixs].mean(0))
