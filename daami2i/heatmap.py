@@ -86,8 +86,9 @@ class GlobalHeatMap:
         """
         scales the pixel ids according to the pixels of the inner latent image dim i.e. self.inner_latent_h and self.inner_latent_w
         """
-        scaled_pixel_ids = [p_id // self.scale_factor for p_id in pixel_ids]
-        scaled_pixel_ids = [(p_id // self.inner_latent_w) * self.inner_latent_w + (p_id % self.inner_latent_w) for p_id in scaled_pixel_ids]
+        pixel_ids_2d = [(p_id // self.latent_w, p_id % self.latent_w) for p_id in pixel_ids]
+        inner_pixel_ids_2d = [(x // self.scale_factor, y // self.scale_factor) for x, y in pixel_ids_2d]
+        scaled_pixel_ids = [x * self.inner_latent_w + y for x, y in inner_pixel_ids_2d]
         return scaled_pixel_ids
 
     def compute_pixel_heat_map(self, latent_pixels: Union[List[int], int] = None) -> PixelHeatMap:
