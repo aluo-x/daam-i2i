@@ -82,7 +82,7 @@ class GlobalHeatMap:
         # Scale Factor
         self.scale_factor = self.latent_h // self.inner_latent_h
 
-    def _scale_correction(self, pixel_ids):
+    def scale_correction(self, pixel_ids):
         """
         scales the pixel ids according to the pixels of the inner latent image dim i.e. self.inner_latent_h and self.inner_latent_w
         """
@@ -103,11 +103,11 @@ class GlobalHeatMap:
         """
         if isinstance(latent_pixels, list):
             # scale correction
-            merge_idxs = self._scale_correction(latent_pixels)
+            merge_idxs = self.scale_correction(latent_pixels)
 
             return PixelHeatMap(self.heat_maps[merge_idxs].mean(0))
         else:
-            merge_idx = self._scale_correction([latent_pixels])
+            merge_idx = self.scale_correction([latent_pixels])
             return PixelHeatMap(self.heat_maps[merge_idx].mean(0))
 
     def compute_bbox_heat_map(self, x1: int, y1: int, x2: int, y2: int) -> PixelHeatMap:
@@ -120,7 +120,7 @@ class GlobalHeatMap:
             raise Exception('Enter valid bounding box! (x1,y1) is the top-left corner and (x2,y2) is the bottom-right corner.')
         pix_ids = [x for y in range(y1, y2+1) for x in range((self.latent_w * y) + x1, (self.latent_w * y) + x2 + 1) if x < (self.latent_h * self.latent_w)]
         # scale correction
-        pix_ids = self._scale_correction(pix_ids)
+        pix_ids = self.scale_correction(pix_ids)
         return PixelHeatMap(self.heat_maps[pix_ids].mean(0))
 
     def inner_pixel_ids(self, 
@@ -167,7 +167,7 @@ class GlobalHeatMap:
           # get the latent pixel ids lying inside the contour
           inner_pixs = self.inner_pixel_ids(pts, image_h, image_w)
           # scale correction
-          inner_pixs = self._scale_correction(inner_pixs)
+          inner_pixs = self.scale_correction(inner_pixs)
 
           if guide_heatmap is None:
               return PixelHeatMap(self.heat_maps[inner_pixs].mean(0))
@@ -202,7 +202,7 @@ class GlobalHeatMap:
               segments_inner_pixs.extend(segment_inner_pixs)
 
           # scale correction
-          segments_inner_pixs = self._scale_correction(segments_inner_pixs)
+          segments_inner_pixs = self.scale_correction(segments_inner_pixs)
 
           if guide_heatmap is None:
               return PixelHeatMap(self.heat_maps[segments_inner_pixs].mean(0))
