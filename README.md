@@ -98,6 +98,9 @@ There types of heatmaps available are:
 
 - **Guided Heatmap-based**: It merges all the pixel heatmaps based on some weighing scheme provided by another heatmap called the `guide_heatmap`. The `guide_heatmap` should be of the dimension of the latent image. Function: `compute_guided_heat_map`
 
+### Updates:
+- `track_all` argument added to `trace` function, which not only tracks the attention heatmap for the attention layers of the size of the latent image but also throughout the UNet. This makes it possible to visualize the attention of each pixel at a better semantic level.
+
 ## Citation
 
 DAAM-I2I: Add Link to this project as citation in your work.
