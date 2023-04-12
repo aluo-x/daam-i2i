@@ -38,6 +38,7 @@ class DiffusionHeatMapHooker(AggregateHooker):
         self.last_image: Image = None
         self.time_idx = 0
         self._gen_idx = 0
+        self.track_all = track_all
 
         modules = [
             UNetCrossAttentionHooker(

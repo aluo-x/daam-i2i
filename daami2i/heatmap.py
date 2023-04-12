@@ -91,7 +91,7 @@ class GlobalHeatMap:
         scaled_pixel_ids = [x * self.inner_latent_w + y for x, y in inner_pixel_ids_2d]
         return scaled_pixel_ids
 
-    def compute_pixel_heat_map(self, latent_pixels: Union[List[int], int] = None) -> PixelHeatMap:
+    def compute_pixel_heat_map(self, latent_pixels: Union[List[int], int]) -> PixelHeatMap:
         """
         Given a list of pixels or pixel id it returns the heatmap for that pixel or mean of all the heatmaps corresponding
         to those pixels.
@@ -125,7 +125,7 @@ class GlobalHeatMap:
 
     def inner_pixel_ids(self, 
         pts: Union[List[List[int]], List[int]], 
-        image_h: int, image_w: int):
+        image_h: int, image_w: int) -> List:
         """
         Given a contour pts in the  it finds the latent image pixels which lie inside this contour
         pts should be a represent a single polygon multi-piece polygon is not handled by this function, check out `segmentation_heat_map`
@@ -236,6 +236,47 @@ class GlobalHeatMap:
         heatmap /= guide_heatmap.sum().item()
 
         return PixelHeatMap(heatmap)
+
+    def compute_pixel_diffused_heat_map(self, 
+        latent_pixel_id: int, 
+        method: str = 'thresholding', 
+        n_iter: int = 20, thresh: int = 0.02,
+        plot_intermediate: bool = False):
+        """
+        For the given latent_pixel it iteratively reweights all the pixels of the image 
+        based on the attention heatmap of this latent pixel. Now, for this updated
+        heatmap we use it to reweight again to generate refined heatmap. This is done for 
+        `n_iter` number of iterations
+        latent_pixel_id: The latent pixel id from which the heatmap will be diffused throughout the latent image
+        method: Currently only has `thresholding` where at each step to remove the misguiding/noisy pixels to
+                prevent them from focussing/enhancing wrong heatmaps, we use simple thresholding
+        n_iter: For how many interations to refine the heatmap as described above
+        plot_itermediate: If the intermediate heatmaps need to plotted to show the evolutation
+
+        """
+        # epicenter is the start of the attention heatmap diffusion
+        epicenter = self.compute_pixel_heat_map(latent_pixel_id).heatmap
+        if plot_intermediate:
+            plt.imshow(epicenter) # Initial Pixel Heatmap
+            plt.show()
+            
+        if method == 'thresholding':
+            # We remove noisy pixels based on a threshold compared to the minimum attention weight
+            # By setting them to 0
+            epicenter[epicenter < epicenter.min()+thresh] = 0
+            # Iterating
+            for _ in range(n_iter):
+                epicenter = self.compute_guided_heat_map(epicenter).heatmap
+                if plot_intermediate:
+                    plt.imshow(epicenter)
+                    plt.show()
+                epicenter[epicenter < epicenter.min()+thresh] = 0
+
+        return PixelHeatMap(epicenter)
+
+
+
+
 
 RawHeatMapKey = Tuple[int, int, int]  # factor, layer, head
 
