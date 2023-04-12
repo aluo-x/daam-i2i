@@ -98,6 +98,8 @@ There types of heatmaps available are:
 
 - **Guided Heatmap-based**: It merges all the pixel heatmaps based on some weighing scheme provided by another heatmap called the `guide_heatmap`. The `guide_heatmap` should be of the dimension of the latent image. Function: `compute_guided_heat_map`
 
+- **Pixel-Diffused Heatmap-based**: It starts with the Pixel Heatmap of a given pixel and then iteratively reweighs all the other pixels based on this heatmap for given number of iteration. It enhances the parts which a pixel focuses the most. Currently it only has `thresholding` method to remove the noisy or unwanted (low-scored pixel heatmaps which if not removed will amplify giving worse diffused heatmap)
+
 ### Updates:
 - `track_all` argument added to `trace` function, which not only tracks the attention heatmap for the attention layers of the size of the latent image but also throughout the UNet. This makes it possible to visualize the attention of each pixel at a better semantic level.
 
