@@ -1,6 +1,6 @@
 # DAAM-Image2Image: Extension of DAAM for Image Self-Attention in Diffusion Models
 
-DAAM-Image2Image is an extension for Diffusion Attentive Attribution Map which captures image self-attention attention whereas originally DAAM captured only text-image cross-attention. A guided self-attention significantly boost the heatmap qualites. Below are some comparisons.
+DAAM-Image2Image is an extension for Diffusion Attentive Attribution Map which captures image self-attention attention whereas originally DAAM captured only text-image cross-attention. A guided self-attention significantly boost the heatmap qualites. Experiments can be found as updates and notebooks in the [Text-Based Object Discovery Repo](https://github.com/RishiDarkDevil/Text-Based-Object-Discovery). Below are some comparisons.
 - The heatmap comparision of DAAM-I2I to [Original DAAM](https://github.com/castorini/daam).
   ![example image](example.png)
 - An immediate benefit of `DAAM-I2I` over `DAAM` is segmentation and object detection tasks for the [TITAN](https://github.com/RishiDarkDevil/TITAN) workflow (`DAAM-I2I` results on left and `DAAM` on the right)
