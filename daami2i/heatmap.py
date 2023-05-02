@@ -282,17 +282,17 @@ class GlobalHeatMap:
         For the entire latent image it iteratively reweights all the pixels of the image 
         based on the attention heatmap of each pixel. Now, for this updated
         heatmaps we use it to reweight again to generate refined heatmaps. This is done for 
-        `n_iter` number of iterations
+        `n_iter` number of iterations. Returns a GlobalHeatMap collection of the attention diffused heatmaps for all pixels
         method: Currently only has `thresholding` where at each step to remove the misguiding/noisy pixels to
                 prevent them from focussing/enhancing wrong heatmaps, we use simple thresholding
         n_iter: For how many interations to refine the heatmap as described above
 
         """
-        # convert the latent 2d image from height.weight x height.weight to 1 x height.weight x height x weight
-        heat_maps2d = self.heat_maps.view(1, -1, self.latent_h, self.latent_w)
+        # convert the latent 2d image from height.width x height x weight to 1 x height.weight x height x weight
+        heat_maps2d = self.heat_maps[None, :]
 
         # weight of the convolution layer that performs attention diffusion
-        conv_weight = self.heat_maps[:, :, None, None]
+        conv_weight = self.heat_maps.view(-1, self.latent_h * self.latent_w)[:, :, None, None]
 
         if method == 'thresholding':
             # We remove noisy pixels based on a threshold compared to the minimum attention weight
@@ -303,11 +303,11 @@ class GlobalHeatMap:
             for _ in tqdm(range(n_iter)):
                 # Aggregating all the heatmaps (Maybe conv_weight as input image instead of heat_maps2d could give faster convergence?
                 # Need to use conv_weight corresponding to the updated heatmaps then)
-                conv_weight = F.conv2d(heat_maps2d, conv_weight)[0].view(self.heat_maps.shape)[:, :, None, None]
+                conv_weight = F.conv2d(heat_maps2d, conv_weight)[0].view(self.heat_maps.shape[0], self.heat_maps.shape[0])[:, :, None, None]
                 # Cut off noisy values based on threshold
                 conv_weight[conv_weight < (torch.min(conv_weight, 1, keepdims=True)[0] + thresh)] = 0
 
-        return GlobalHeatMap(conv_weight[:,:], self.latent_h*self.latent_w)
+        return GlobalHeatMap(conv_weight.view(self.heat_maps.shape[0], self.latent_h, self.latent_w), self.latent_h*self.latent_w)
 
 
 RawHeatMapKey = Tuple[int, int, int]  # factor, layer, head
