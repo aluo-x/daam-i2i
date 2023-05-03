@@ -290,8 +290,6 @@ class GlobalHeatMap:
         """
         # convert the latent 2d image from height.width x height x weight to 1 x height.weight x height x weight
         heat_maps2d = self.heat_maps[None, :].clone()
-        # Dividing by sum of all the attention values for each heatmap to have a weighted averaging after 1x1 Kernel convolution is applied
-        heat_maps2d = heat_maps2d / heat_maps2d.sum(-1, keepdims=True).sum(-2, keepdims=True)
 
         # weight of the convolution layer that performs attention diffusion (making a copy to prevent changing the heatmap)
         conv_weight = self.heat_maps.view(-1, self.latent_h * self.latent_w).clone()[:, :, None, None]
@@ -303,6 +301,8 @@ class GlobalHeatMap:
 
             # Iterating
             for _ in tqdm(range(n_iter)):
+                # For getting weighted average after 1x1 Kernel convolution below
+                conv_weight /= conv_weight.sum(1, keepdims=True)
                 # Aggregating all the heatmaps (Maybe conv_weight as input image instead of heat_maps2d could give faster convergence?
                 # Need to use conv_weight corresponding to the updated heatmaps then)
                 conv_weight = F.conv2d(heat_maps2d, conv_weight)[0].view(self.heat_maps.shape[0], self.heat_maps.shape[0])[:, :, None, None]
