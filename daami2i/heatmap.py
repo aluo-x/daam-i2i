@@ -291,8 +291,8 @@ class GlobalHeatMap:
         # convert the latent 2d image from height.width x height x weight to 1 x height.weight x height x weight
         heat_maps2d = self.heat_maps[None, :]
 
-        # weight of the convolution layer that performs attention diffusion
-        conv_weight = self.heat_maps.view(-1, self.latent_h * self.latent_w)[:, :, None, None]
+        # weight of the convolution layer that performs attention diffusion (making a copy to prevent changing the heatmap)
+        conv_weight = self.heat_maps.view(-1, self.latent_h * self.latent_w).clone()[:, :, None, None]
 
         if method == 'thresholding':
             # We remove noisy pixels based on a threshold compared to the minimum attention weight
