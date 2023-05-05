@@ -95,13 +95,16 @@ class DiffusionHeatMapHooker(AggregateHooker):
                 if factor in factors and (head_idx is None or head_idx == head) and (layer_idx is None or layer_idx == layer):
                     heat_map = heat_map.unsqueeze(1)
                     # The clamping fixes undershoot.
-                    all_merges.append(F.interpolate(heat_map, size=(x, x), mode='bicubic').clamp_(min=0))
+                    if len(factors) > 1:
+                        all_merges.append(F.interpolate(heat_map, size=(x, x), mode='bicubic').clamp_(min=0))
+                    else:
+                        all_merges.append(heat_map)
 
             try:
                 maps = torch.zeros_like(all_merges[0])
                 # maps = torch.stack(all_merges, dim=0)
                 for map in all_merges:
-                  maps += map
+                    maps += map
             except RuntimeError:
                 if head_idx is not None or layer_idx is not None:
                     raise RuntimeError('No heat maps found for the given parameters.')
@@ -115,7 +118,7 @@ class DiffusionHeatMapHooker(AggregateHooker):
             if normalize:
                 maps = maps / (maps.sum(0, keepdim=True) + 1e-6)  # drop out [SOS] and [PAD] for proper probabilities
 
-        return GlobalHeatMap(maps, self.latent_hw)
+        return GlobalHeatMap(maps, maps.shape[0])
 
 
 class PipelineHooker(ObjectHooker[StableDiffusionPipeline]):
@@ -257,8 +260,8 @@ class UNetCrossAttentionHooker(ObjectHooker[CrossAttention]):
             hk_self (`UNetCrossAttentionHooker`): pointer to the hook itself.
             self (`CrossAttention`): pointer to the module.
             query (`torch.Tensor`): the query tensor. shape: (batch_size * heads, height * width, image_embedding_size)
-            key (`torch.Tensor`): the key tensor. shape: (batch_size * heads, height * width, text_embedding_size)
-            value (`torch.Tensor`): the value tensor. shape: (batch_size * heads, height * width, text_embedding_size)
+            key (`torch.Tensor`): the key tensor. shape: (batch_size * heads, height * width, image_embedding_size)
+            value (`torch.Tensor`): the value tensor. shape: (batch_size * heads, height * width, image_embedding_size)
         """
         # query.shape = (batch_size * num_heads, latent_image_seq_len, 64) # For SDV2
         # key.shape = (batch_size * num_heads, latent_image_seq_len, 64) # For SDV2
@@ -299,6 +302,8 @@ class UNetCrossAttentionHooker(ObjectHooker[CrossAttention]):
 
         # compute attention output
         hidden_states = torch.bmm(attn_slice, value)
+
+        # torch.save(hidden_states, f'{factor}-{hk_self.trace._gen_idx}.pt')
 
         # reshape hidden_states
         hidden_states = self.reshape_batch_dim_to_heads(hidden_states)
