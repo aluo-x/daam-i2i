@@ -3,12 +3,19 @@
 DAAM-Image2Image is an extension for Diffusion Attentive Attribution Map which captures image self-attention attention whereas originally DAAM captured only text-image cross-attention. A guided self-attention significantly boost the heatmap qualites. Experiments can be found as updates and notebooks in the [Text-Based Object Discovery Repo](https://github.com/RishiDarkDevil/Text-Based-Object-Discovery). Below are some comparisons.
 - The heatmap comparision of DAAM-I2I to [Original DAAM](https://github.com/castorini/daam).
   ![example image](example.png)
-- An immediate benefit of `DAAM-I2I` over `DAAM` is segmentation and object detection tasks for the [TITAN](https://github.com/RishiDarkDevil/TITAN) workflow (`DAAM-I2I` results on left and `DAAM` on the right)
+- An immediate benefit of `DAAM+DAAM-I2I` over `DAAM` is segmentation and object detection tasks for the [TITAN](https://github.com/RishiDarkDevil/TITAN) workflow (`DAAM-I2I` results on left and `DAAM` on the right - detection and segmentation for the object `woman`)
   ![example segment](segment-example.png)
+- In addition to `DAAM`'s Text-Guided Object Detection, `DAAM-I2I` offers even more capability to glide through the Modelled Vision space for Semantic Image Segmentation (sometimes even better than [Segment Anything Model](https://github.com/facebookresearch/segment-anything)). It is achieved through a graph-inspired pixel attention diffusion (more methods are coming soon). More interesting being the fact that it is completely unsupervised - exploiting zero-shot capability of Diffusion Model. We get segmentation maps for each pixel so only a few are visualized below.
+
+Semantic (Only a Few visualized)| Pixel Attention Diffusion
+-|-
+![](examples/img-seg.jpg)|![](examples/img-pix-diff-trump.gif)
+<img src="examples\img-cycle-pix-diff-det.png" width="200%">|![](examples/img-pix-diff-cycle.gif)
+
+| ![](examples/img-food-pix-diff.png) | ![](examples/img-plate-pix-diff.png) | ![](examples/img-table-pix-diff.png)
+|-|-|-|
 
 In [original DAAM paper](https://arxiv.org/abs/2210.04885), the author proposes diffusion attentive attribution maps (DAAM), a cross attention-based approach for interpreting Stable Diffusion for interpretability of token heatmap over latent images. Here, I use the same approach but extended for latent image self-attention heatmaps.
-
-**NOTE:** `daami2i` alone is just a self-attention image heatmap generator for diffusion models. But when combined with `daam` cross-attention text-image heatmap generator with optimal merging or weighing schemes and additions, it produces fantastic results as shown above.
 
 ## Getting Started
 First, install [PyTorch](https://pytorch.org) for your platform. 
