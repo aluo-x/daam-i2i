@@ -28,9 +28,9 @@ The following steps are useful for setting up `daami2i` package in Colab Environ
 !pip install git+https://github.com/RishiDarkDevil/daam-i2i.git
 ```
 
-### Using DAAM as a Library
+### Using DAAMI2I as a Library
 
-Import and use DAAM as follows:
+Import and use DAAMI2I as follows:
 
 ```python
 # Plotting
