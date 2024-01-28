@@ -218,7 +218,7 @@ class GlobalHeatMap:
               # return the weighted heatmap
               return PixelHeatMap(heatmap)
 
-    def compute_guided_heat_map(self, guide_heatmap: torch.tensor) -> PixelHeatMap:
+    def compute_guided_heat_map(self, guide_heatmap: torch.tensor):
         """
         For each pixel in the latent image we have one heatmap. Now, with a guiding heatmap
         we can merge all these pixel heatmaps with a weighted average according to the weights 
@@ -227,16 +227,20 @@ class GlobalHeatMap:
         guide_heatmap: A guiding heatmap of the dimension of the latent image. It should be a 2D torch.tensor
         """
 
-        # To store weighted average of all the heatmaps with weights given in the `guide_heatmap`
-        heatmap = torch.zeros((self.latent_h, self.latent_w)).cpu()
+        # convert the latent 2d image from height.width x height x width to 1 x height.weight x height x width
+        # i.e. we add the batch dim
+        heat_maps2d = self.heat_maps[None, :].clone()
 
-        for i in range(self.latent_h):
-            for j in range(self.latent_w):
-                heatmap += self.compute_pixel_heat_map(self.latent_w * i + j).heatmap * guide_heatmap[i][j].item()
+        # weight of the convolution layer that performs attention diffusion (making a copy to prevent changing the heatmap)
+        conv_weight = guide_heatmap.view(-1, self.latent_h * self.latent_w).clone()[:, :, None, None]
 
-        heatmap /= guide_heatmap.sum().item()
+        # For getting weighted average after 1x1 Kernel convolution below
+        conv_weight /= conv_weight.sum(1, keepdims=True)
 
-        return PixelHeatMap(heatmap)
+        # Aggregating all the heatmaps using convolution operation i.e. weighted average using `guide_heatmap` weights
+        guided_heatmap = F.conv2d(heat_maps2d, conv_weight)[0,0]
+
+        return PixelHeatMap(guided_heatmap)
 
     def compute_pixel_diffused_heat_map(self, 
         latent_pixel_id: int, 
