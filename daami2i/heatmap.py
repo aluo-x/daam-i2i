@@ -232,7 +232,7 @@ class GlobalHeatMap:
         heat_maps2d = self.heat_maps[None, :].clone()
 
         # weight of the convolution layer that performs attention diffusion (making a copy to prevent changing the heatmap)
-        conv_weight = guide_heatmap.view(-1, self.latent_h * self.latent_w).clone()[:, :, None, None]
+        conv_weight = guide_heatmap.to(heat_maps2d.device).view(-1, self.latent_h * self.latent_w).clone()[:, :, None, None]
 
         # For getting weighted average after 1x1 Kernel convolution below
         conv_weight /= conv_weight.sum(1, keepdims=True)
