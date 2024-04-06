@@ -240,7 +240,7 @@ class GlobalHeatMap:
         # Since `Half` is not supported on cpu, if the dtype is `Half` we do the computation is cuda
         if heat_maps2d.dtype == torch.float16 or conv_weight.dtype == torch.float16:
             # Aggregating all the heatmaps using convolution operation i.e. weighted average using `guide_heatmap` weights
-            guided_heatmap = F.conv2d(heat_maps2d.cuda(), conv_weight.cuda())[0,0].cpu()
+            guided_heatmap = F.conv2d(heat_maps2d.cuda(), conv_weight.half().cuda())[0,0].cpu()
         else:
             # Aggregating all the heatmaps using convolution operation i.e. weighted average using `guide_heatmap` weights
             guided_heatmap = F.conv2d(heat_maps2d, conv_weight)[0,0]
